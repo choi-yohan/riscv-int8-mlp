@@ -1,0 +1,14 @@
+/build/
+/build-pico*/
+
+# Keep the runnable model and sample; regenerate other training artifacts locally.
+/models/*
+!/models/recommended.i8ml
+!/models/sample.u8
+/models-*/
+/data/
+
+__pycache__/
+*.py[cod]
+.venv/
+.DS_Store
