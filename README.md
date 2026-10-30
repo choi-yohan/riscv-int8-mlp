@@ -13,7 +13,7 @@ The network is **784 → 128 ReLU → 10**, with INT8 weights and activations an
 Measured on an RP2350A board, core 0 at 150 MHz, with Pico SDK 2.3.1 and RISC-V GCC 16.1.0. All eight implementations ran in the same firmware, using one fixed MNIST image, 8 warmup runs and 16 measured runs each, SRAM execution, masked interrupts during inference, and LTO disabled.
 
 | Implementation | Mean cycles | Instructions | CPI | Mean time (ms) |
-|---|---:|---:|---:|---:|ㄴ
+|---|---:|---:|---:|---:|
 | C `-O0` | 2,657,232 | 1,942,521 | 1.367 | 17.715 |
 | C `-O1` | 868,714 | 715,337 | 1.214 | 5.791 |
 | C `-O2` | 765,043 | 713,928 | 1.071 | 5.100 |
@@ -32,7 +32,24 @@ The **legacy** version calls a scalar dot-product function for each neuron. The 
 - **Function inlining:** removes per-neuron call/return and argument setup. The forward function becomes a leaf function, eliminating the need to save and restore `ra`. Can reduce 4+ cycles per one function call.
 - **Eight-way loop unrolling:** reduces loop-control instructions by 1/8. No remainder loop is needed.
 - **Load scheduling:** places independent loads before arithmetic to avoid immediate load-use dependencies. Hazard3 requires 1 cycle stall for load-use hazard ([Hazard3 Reference Manual](https://wren.wtf/hazard3/doc/), Appendix A: Instruction Timings.)
+
+  ```asm
+  lb  t1, 0(s5)  # W[j]
+  lb  t2, 0(a1)  # x[j]
+  lb  t3, 1(s5)  # W[j+1]
+  lb  t4, 1(a1)  # x[j+1]
+  mul t1, t1, t2
+  mul t3, t3, t4
+  ```
+
 - **Input reuse:** computes two neighboring neurons together in both layers, reusing each input value. Two products require three loads instead of four.
+
+  ```c
+  input = x[j];
+  sum0 += W[r][j]     * input;
+  sum1 += W[r + 1][j] * input;
+  ```
+
 - **Loop simplification:** calculates rounding and saturation constants once before the hidden-layer loop and compares pointers against an end address instead of maintaining an element counter.
 
 ## Measurement method
